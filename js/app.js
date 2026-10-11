@@ -1200,6 +1200,12 @@ player.addEventListener('preview', (e) => {
 });
 player.addEventListener('notice', (e) => toast(e.detail.message));
 player.addEventListener('engine', () => updateDock());
+let resumeTipShown = false;
+player.addEventListener('resumed', () => {
+  if (resumeTipShown || !player.onYouTube) return;
+  resumeTipShown = true;
+  toast('Picked up where you left off — YouTube songs pause while Echo is in the background');
+});
 player.addEventListener('error', (e) => toast(`${e.detail.message}${e.detail.track ? ` — ${e.detail.track.title}` : ''}`));
 
 setInterval(() => { if (player.sleep) updateSleepLabel(); }, 1000);

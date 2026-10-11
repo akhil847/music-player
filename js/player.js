@@ -25,8 +25,12 @@ export class Player extends EventTarget {
     for (const media of [audio, this.yt]) {
       // Ignore events from the engine that isn't playing the current song.
       const on = (type, fn) => media.addEventListener(type, (e) => { if (media === this.media) fn(e); });
-      on('play', () => this.emit('state'));
-      on('pause', () => this.emit('state'));
+      on('play', () => { this.bgPaused = false; this.emit('state'); });
+      on('pause', () => {
+        // Paused by the browser because the app went to the background (not by the user)?
+        if (document.hidden && Date.now() - this.userPausedAt > 1500) this.bgPaused = true;
+        this.emit('state');
+      });
       on('playing', () => { this.errorStreak = 0; this.emit('state'); });
       on('waiting', () => this.emit('state'));
       on('timeupdate', () => { this.emit('time'); this.checkSleep(); });
@@ -35,6 +39,16 @@ export class Player extends EventTarget {
       on('ended', () => this.onEnded());
       on('error', (e) => this.onError(e.detail));
     }
+    this.bgPaused = false;
+    this.userPausedAt = 0;
+    // Coming back to the app: carry on with a song the browser paused in the background.
+    document.addEventListener('visibilitychange', () => {
+      if (document.hidden || !this.bgPaused || !this.current) return;
+      this.bgPaused = false;
+      if (this.media.paused) {
+        this.media.play().then(() => this.emit('resumed')).catch(() => this.emit('state'));
+      }
+    });
     this.setupMediaSession();
     setInterval(() => this.checkSleep(), 1000);
   }
@@ -217,12 +231,14 @@ export class Player extends EventTarget {
       else this.media.play().catch(() => this.load(true));
     } else {
       this.wantPlay = false;
+      this.userPausedAt = Date.now();
+      this.bgPaused = false;
       this.media.pause();
     }
   }
 
   play() { if (this.media.paused) this.toggle(); }
-  pause() { this.wantPlay = false; this.media.pause(); }
+  pause() { this.wantPlay = false; this.userPausedAt = Date.now(); this.bgPaused = false; this.media.pause(); }
 
   next(auto = false) {
     if (!this.order.length) return;
@@ -343,6 +359,7 @@ export class Player extends EventTarget {
   checkSleep() {
     if (this.sleep?.at && Date.now() >= this.sleep.at) {
       this.sleep = null;
+      this.userPausedAt = Date.now();
       this.media.pause();
       this.emit('sleep');
     }

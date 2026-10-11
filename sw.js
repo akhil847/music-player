@@ -1,6 +1,6 @@
 // Service worker: caches the app shell so Echo opens instantly and works offline
 // (songs saved on the device keep playing without a connection).
-const VERSION = 'echo-v3';
+const VERSION = 'echo-v4';
 const SHELL = [
   './',
   './index.html',
