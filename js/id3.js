@@ -72,7 +72,13 @@ async function thumbnail(blob, size = 300) {
 export function guessFromFilename(name) {
   const base = name.replace(/\.[^.]+$/, '').replace(/_/g, ' ').trim();
   const m = base.match(/^(.+?)\s+-\s+(.+)$/);
-  return m ? { artist: m[1].trim(), title: m[2].trim() } : { title: base };
+  if (!m) return { title: base };
+  const [left, right] = [m[1].trim(), m[2].trim()];
+  if (/^\d{1,3}$/.test(left)) return guessFromFilename(right);            // "01 - Song"
+  if (/\.(com|net|org|info|in|co|me|io|cc|site|xyz)\b/i.test(right) || /\b(mp3|kbps)\b/i.test(right)) {
+    return { title: left };                                                  // "Song - SiteName.com"
+  }
+  return { artist: left, title: right };
 }
 
 export function probeDuration(file) {

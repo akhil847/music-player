@@ -2,6 +2,7 @@ import * as store from './store.js';
 import * as audius from './audius.js';
 import { Player, REPEAT } from './player.js';
 import { readTags, guessFromFilename, probeDuration } from './id3.js';
+import * as artwork from './artwork.js';
 
 /* ==========================================================================
    Helpers
@@ -50,8 +51,17 @@ function artHTML(t, cls = '') {
   return `<div class="art ${cls}" style="${gradient(t.id || t.title)}">${icon('music', 'art-fallback')}${img}</div>`;
 }
 
+// Group covers build themselves from the pictures of the songs inside; emoji + colour until there are any.
 function groupCover(g, cls = '') {
-  return `<div class="art group-cover ${cls}" style="background:linear-gradient(135deg, ${esc(g.color)}, color-mix(in srgb, ${esc(g.color)} 35%, #000))"><span>${esc(g.emoji || '🎵')}</span></div>`;
+  const bg = `background:linear-gradient(135deg, ${esc(g.color)}, color-mix(in srgb, ${esc(g.color)} 35%, #000))`;
+  const attr = g.id ? `data-group-cover="${esc(g.id)}"` : '';
+  const arts = [...new Set((g.tracks || []).map((t) => t.artwork).filter(Boolean))];
+  if (!arts.length) return `<div class="art group-cover ${cls}" ${attr} style="${bg}"><span>${esc(g.emoji || '🎵')}</span></div>`;
+  const pics = arts.length >= 4
+    ? `<div class="collage">${arts.slice(0, 4).map((a) => `<img src="${esc(a)}" alt="" loading="lazy" onerror="this.style.visibility='hidden'">`).join('')}</div>`
+    : `<img src="${esc(arts[0])}" alt="" loading="lazy" onerror="this.remove()">`;
+  const badge = /\b(xs|sm)\b/.test(cls) ? '' : `<b class="cover-badge">${esc(g.emoji || '🎵')}</b>`;
+  return `<div class="art group-cover has-pics ${cls}" ${attr} style="${bg}">${pics}${badge}</div>`;
 }
 
 let toastTimer;
@@ -123,11 +133,15 @@ darkQuery.addEventListener?.('change', applyTheme);
 /* ==========================================================================
    Shared fragments
    ========================================================================== */
+function rowSub(t) {
+  return [esc(t.artist), t.plays ? `${fmtCount(t.plays)} plays` : '', t.source === 'local' ? 'On device' : t.source === 'url' ? 'Link' : '']
+    .filter(Boolean).join(' · ');
+}
+
 function trackRow(t, i, listKey, { numbered = false, groupId = null } = {}) {
   const current = player.current?.id === t.id;
   const liked = store.isLiked(t.id);
-  const sub = [esc(t.artist), t.plays ? `${fmtCount(t.plays)} plays` : '', t.source === 'local' ? 'On device' : t.source === 'url' ? 'Link' : '']
-    .filter(Boolean).join(' · ');
+  const sub = rowSub(t);
   return `
     <div class="row ${current ? 'is-current' : ''}" data-id="${esc(t.id)}" data-list="${esc(listKey)}" data-index="${i}" ${groupId ? `data-group="${esc(groupId)}"` : ''} data-action="play-row">
       ${numbered ? `<div class="row-num">${i + 1}</div>` : ''}
@@ -253,6 +267,7 @@ async function renderHome(route, token) {
       <div class="quick-grid">
         <a class="quick" href="#/liked"><div class="art liked-cover">${icon('heart-fill')}</div><span>Liked songs</span><em>${liked.length}</em></a>
         ${groups.slice(0, 5).map((g) => `<a class="quick" href="#/group/${encodeURIComponent(g.id)}">${groupCover(g)}<span>${esc(g.name)}</span><em>${g.tracks.length}</em></a>`).join('')}
+        ${ensureGroupArt(groups.slice(0, 5))}
         ${groups.length < 5 ? `<button class="quick quick-new" data-action="new-group"><div class="art">${icon('plus')}</div><span>New group</span></button>` : ''}
       </div>
       ${recents.length ? `<section>${sectionHead('Recently played', { href: '#/recent', label: 'See all' })}${trackShelf(recents.slice(0, 12), 'recents')}</section>` : ''}
@@ -402,7 +417,7 @@ function renderLibrary() {
             <button class="btn sm" data-action="new-group">${icon('plus')} New group</button>
           </div>
         </div>
-        ${groups.length ? `<div class="grid">${groups.map(groupCard).join('')}</div>` : `
+        ${groups.length ? `<div class="grid">${groups.map(groupCard).join('')}</div>${ensureGroupArt(groups)}` : `
           <div class="empty-hero">
             <div class="emoji">🎧</div>
             <h3>Make your first group</h3>
@@ -436,6 +451,7 @@ function collectionPage({ title, subtitle, cover, listKey, tracks, actions = '',
       <div class="list-actions">${tracks.length ? playButtons(listKey) : ''}${actions}</div>
       ${trackList(tracks, listKey, { empty, ...opts })}
     </div>`;
+  artwork.ensure(tracks.filter((t) => t.source !== 'audius'));
 }
 
 function renderLiked() {
@@ -563,6 +579,11 @@ function renderSettings() {
   $('#customAccent').addEventListener('change', () => renderSettings());
 }
 
+function ensureGroupArt(groups) {
+  artwork.ensure(groups.flatMap((g) => g.tracks.slice(0, 8)).filter((t) => t.source !== 'audius'));
+  return '';
+}
+
 function renderSideGroups() {
   const groups = store.get('groups');
   const active = parseRoute();
@@ -677,6 +698,7 @@ function openGroupEditor(group, tracks = []) {
     if (!data.name) return;
     if (group) {
       store.updateGroup(group.id, data);
+      updateContextUI();
       closeSheet();
       toast('Group updated');
       render();
@@ -874,6 +896,7 @@ function updatePlayerUI() {
   $('.pb-artist').textContent = artist;
   $('.np-title').textContent = title;
   $('.np-artist').textContent = t ? t.artist : '';
+  updateContextUI();
   if (playerBar.dataset.track !== (t?.id || '')) {
     playerBar.dataset.track = t?.id || '';
     $('.pb-art').outerHTML = t ? artHTML(t, 'pb-art') : '<div class="pb-art art"></div>';
@@ -885,6 +908,17 @@ function updatePlayerUI() {
   updateStateUI();
   updateModeUI();
   markCurrentRows();
+}
+
+function updateContextUI() {
+  const ctx = player.context;
+  const g = ctx?.groupId && store.getGroup(ctx.groupId);
+  const label = g ? g.name : ctx?.label;
+  $('.np-context').innerHTML = label
+    ? `<small>Playing from</small><span>${g ? `${esc(g.emoji)} ` : ''}${esc(label)}</span>`
+    : 'Now playing';
+  $('.np-context').classList.toggle('linked', !!ctx?.href);
+  $('.pb-meta').title = label ? `Playing from ${label}` : '';
 }
 
 function updateStateUI() {
@@ -928,6 +962,46 @@ function updateVolumeUI() {
   range.style.setProperty('--p', `${v * 100}%`);
   $('.vol-icon use').setAttribute('href', v === 0 ? '#i-volume-off' : '#i-volume');
 }
+
+function setArt(el, url) {
+  const img = $('img', el);
+  if (img) img.src = url;
+  else el.insertAdjacentHTML('beforeend', `<img src="${esc(url)}" alt="" onerror="this.remove()">`);
+}
+
+const refreshGroupCovers = debounce(() => {
+  $$('[data-group-cover]').forEach((el) => {
+    const g = store.getGroup(el.dataset.groupCover);
+    if (!g) return;
+    const cls = [...el.classList].filter((c) => ['xs', 'sm', 'md', 'lg', 'xl'].includes(c)).join(' ');
+    el.outerHTML = groupCover(g, cls);
+  });
+}, 400);
+
+artwork.onArtwork((id, patch) => {
+  let track = null;
+  const fix = (t) => { if (t.id === id) { Object.assign(t, patch); track = t; } };
+  player.queue.forEach(fix);
+  lists.forEach((list) => list.forEach(fix));
+  $$(`[data-id="${CSS.escape(id)}"]`).forEach((el) => {
+    const art = $('.art', el);
+    if (art) setArt(art, patch.artwork);
+    if (!patch.title || !track) return;
+    const title = $('.row-title, .card-title', el);
+    if (title) { const eq = $('.eq', title); title.textContent = track.title; if (eq) title.prepend(eq); }
+    const sub = $('.row-sub', el);
+    if (sub) sub.innerHTML = rowSub(track);
+    const csub = $('.card-sub', el);
+    if (csub) csub.textContent = track.artist;
+  });
+  if (player.current?.id === id) {
+    playerBar.dataset.track = ''; // force the player artwork to redraw
+    updatePlayerUI();
+    player.updateMediaMetadata();
+    saveSession();
+  }
+  refreshGroupCovers();
+});
 
 function markCurrentRows() {
   const id = player.current?.id;
@@ -978,6 +1052,8 @@ let pendingRecent = null;
 
 player.addEventListener('track', () => {
   pendingRecent = player.current?.id || null;
+  // Find a poster for the song that's playing (and the next few) if it has none.
+  if (player.current) artwork.ensure([player.current, ...player.upcoming.slice(0, 3)], { priority: true });
   updatePlayerUI();
   updateTimeUI();
   saveSessionNow();
@@ -1001,7 +1077,7 @@ setInterval(() => { if (player.sleep) updateSleepLabel(); }, 1000);
 
 function saveSessionNow() {
   const snap = player.snapshot();
-  store.set('session', snap ? { ...snap, queue: snap.queue.map(store.slim) } : null, { silent: true });
+  store.set('session', snap ? { ...snap, queue: snap.queue.map(store.slim), context: player.context || null } : null, { silent: true });
 }
 const saveSession = debounce(saveSessionNow, 500);
 
@@ -1020,8 +1096,30 @@ function rowContext(el) {
   return { list, index, track: list[index], listKey: row.dataset.list, groupId: row.dataset.group };
 }
 
-function playFrom(list, index, shuffle) {
+// Describes where playback started from, shown as "Playing from …" on the player.
+function contextFor(listKey) {
+  const here = location.hash || '#/home';
+  if (listKey?.startsWith('group:')) {
+    const g = store.getGroup(listKey.slice(6));
+    return g ? { label: g.name, href: `#/group/${encodeURIComponent(g.id)}`, groupId: g.id } : null;
+  }
+  const route = parseRoute();
+  const fixed = {
+    liked: { label: 'Liked songs', href: '#/liked' },
+    recents: { label: 'Recently played', href: '#/recent' },
+    device: { label: 'On this device', href: '#/device' },
+    'home-trending': { label: 'Trending now', href: '#/trending' },
+    trending: { label: `Trending${route.query.get('genre') ? ` · ${route.query.get('genre')}` : ''}`, href: here },
+    playlist: { label: $('.collection-info h1')?.textContent || 'Playlist', href: here },
+    search: { label: `Search “${route.query.get('q') || ''}”`, href: here },
+    'search-mine': { label: 'Your library', href: here },
+  };
+  return fixed[listKey] || null;
+}
+
+function playFrom(list, index, shuffle, listKey) {
   if (!list?.length) return;
+  player.context = contextFor(listKey);
   player.playList(list, index, shuffle !== undefined ? { shuffle } : {});
 }
 
@@ -1039,12 +1137,14 @@ async function handleFiles(fileList) {
         artist: tags.artist || guess.artist || 'Unknown artist',
         artwork: tags.artwork,
         duration,
+        guessed: !tags.title, // name came from the file name, so it can be tidied up automatically
       }));
     } catch (e) {
       toast(`Couldn’t save ${file.name}: ${e.message}`);
     }
   }
   if (addTarget && added.length) store.addToGroup(addTarget, added);
+  artwork.ensure(added.filter((t) => !t.artwork));
   if (added.length) toast(`Added ${added.length} song${added.length === 1 ? '' : 's'}${addTarget ? ' to the group' : ''}`);
   render();
 }
@@ -1054,10 +1154,11 @@ const actions = {
     const { list, index } = rowContext(el);
     if (!list?.length) return;
     if (player.current?.id === list[index].id) { player.toggle(); return; }
-    playFrom(list, index); // with shuffle on, the tapped song plays first and the rest are shuffled
+    playFrom(list, index, undefined, rowContext(el).listKey); // with shuffle on, the tapped song plays first and the rest are shuffled
   },
-  'play-list': (el) => playFrom(lists.get(el.dataset.list), 0, false),
-  'shuffle-list': (el) => playFrom(lists.get(el.dataset.list), 0, true),
+  'play-list': (el) => playFrom(lists.get(el.dataset.list), 0, false, el.dataset.list),
+  'shuffle-list': (el) => playFrom(lists.get(el.dataset.list), 0, true, el.dataset.list),
+  'open-context': () => { if (player.context?.href) { closeNowPlaying(); navigate(player.context.href); } },
   like: (el) => {
     const { track } = rowContext(el);
     if (!track) return;
@@ -1351,6 +1452,7 @@ async function boot() {
   player.rate = s.speed || 1;
   $('.speed-label').textContent = `${player.rate}×`;
   updateVolumeUI();
+  player.context = store.get('session')?.context || null;
   player.restore(store.get('session'));
   updatePlayerUI();
   addEventListener('hashchange', () => {

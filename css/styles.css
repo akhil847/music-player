@@ -231,6 +231,14 @@ input[type="range"]:hover::-webkit-slider-runnable-track { background: linear-gr
 .art.md.group-cover span { font-size: 28px; }
 .art.lg.group-cover span { font-size: 56px; }
 .art.xl.group-cover span { font-size: clamp(64px, 9vw, 96px); }
+.group-cover.has-pics .collage { position: absolute; inset: 0; display: grid; grid-template-columns: 1fr 1fr; }
+.group-cover.has-pics .collage img { position: static; width: 100%; height: 100%; object-fit: cover; }
+.cover-badge {
+  position: absolute; right: 6%; bottom: 6%; font-size: 1.1em; line-height: 1; padding: .25em; border-radius: 30%;
+  background: rgba(0, 0, 0, .45); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+}
+.art.lg .cover-badge { font-size: 22px; }
+.art.xl .cover-badge { font-size: 28px; }
 .liked-cover { background: linear-gradient(135deg, var(--accent), #ff5fa2); color: #fff; }
 .device-cover { background: linear-gradient(135deg, #0ea5e9, #14b8a6); color: #fff; }
 .recent-cover { background: linear-gradient(135deg, #f59e0b, #ef4444); color: #fff; }
@@ -453,7 +461,14 @@ kbd { background: var(--surface-2); border-radius: 6px; padding: 2px 8px; font-f
 .np-head { display: flex; align-items: center; justify-content: space-between; }
 .np-head .icon-btn, .np-meta .icon-btn, .np-controls .icon-btn { color: rgba(255, 255, 255, .85); }
 .np-head .icon-btn:hover, .np-controls .icon-btn:hover { background: rgba(255, 255, 255, .1); color: #fff; }
-.np-context { font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; opacity: .8; }
+.np-context {
+  font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .1em; opacity: .85; color: #fff;
+  display: flex; flex-direction: column; align-items: center; min-width: 0; max-width: 70%; cursor: default;
+}
+.np-context small { font-size: 10px; font-weight: 700; opacity: .7; }
+.np-context span { text-transform: none; letter-spacing: 0; font-size: 14px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.np-context.linked { cursor: pointer; }
+.np-context.linked:hover span { text-decoration: underline; }
 .np-art { width: min(100%, 46vh); margin: auto; border-radius: 16px; box-shadow: 0 24px 60px rgba(0, 0, 0, .5); transition: transform .3s; }
 body:not(.is-playing) .np-art { transform: scale(.92); }
 .np-meta { display: flex; align-items: center; gap: 12px; }

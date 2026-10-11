@@ -305,7 +305,7 @@ export class Player extends EventTarget {
     navigator.mediaSession.metadata = new MediaMetadata({
       title: t.title,
       artist: t.artist,
-      album: 'Echo',
+      album: this.context?.label || 'Echo',
       artwork: t.artwork
         ? [{ src: t.artwork, sizes: '480x480', type: 'image/jpeg' }]
         : [{ src: new URL('icons/icon-512.png', location.href).href, sizes: '512x512', type: 'image/png' }],

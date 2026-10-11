@@ -12,6 +12,12 @@ No account, no ads, no tracking — everything you save stays on your device.
 - 📁 **Your own files** — upload MP3/M4A/FLAC/WAV/OGG (or drag & drop on desktop). Title, artist and cover art are read from the file's tags
 - 🔗 **Links** — add any direct audio URL or internet radio stream
 
+**Pictures, automatically**
+- When a song has no picture, Echo finds its **album cover or movie poster** by itself (via Apple's free iTunes catalogue, which includes film soundtracks) and shows it on the player, the lock screen and in your lists
+- Messy file names like `01 - Naatu Naatu (From RRR) [128 kbps]` or `Srivalli_Lyrical_site.in` are cleaned up, and the proper **song title and artist** are filled in when there's a confident match
+- **Group covers build themselves** from the pictures of the songs inside (a 2×2 collage once there are 4), with the group's emoji as a badge
+- The player shows **"Playing from <group>"** — tap it to jump to that group
+
 **Organise**
 - 👥 **Groups** — your own collections with a name, emoji, colour and description. Put *anything* in them: trending songs, search results, your files, links
 - Add songs to a group from any song's ⋮ menu, or open a group → **Add songs** and tap ➕ on anything you find

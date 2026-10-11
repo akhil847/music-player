@@ -7,6 +7,7 @@ const DEFAULTS = {
   localTracks: [],    // track objects for files stored on this device
   recents: [],        // recently played tracks
   searches: [],       // recent search strings
+  artCache: {},       // "title|artist" -> { url } or { at } for a failed lookup
   settings: {
     theme: 'dark',
     accent: '#8b5cf6',
@@ -130,7 +131,7 @@ export function moveInGroup(id, from, to) {
 export async function addLocalFile(file, meta) {
   const id = `local:${uid()}`;
   await files.put(id, file);
-  const track = { id, source: 'local', title: meta.title, artist: meta.artist, artwork: meta.artwork || '', duration: meta.duration || 0, genre: '', size: file.size };
+  const track = { id, source: 'local', title: meta.title, artist: meta.artist, artwork: meta.artwork || '', duration: meta.duration || 0, genre: '', size: file.size, guessed: !!meta.guessed };
   set('localTracks', [track, ...state.localTracks]);
   return track;
 }
@@ -153,6 +154,7 @@ export function updateTrackMeta(id, patch) {
   set('localTracks', fix(state.localTracks));
   set('liked', fix(state.liked));
   set('groups', state.groups.map((g) => ({ ...g, tracks: fix(g.tracks) })));
+  set('recents', fix(state.recents), { silent: true });
 }
 
 /* ---------- Backup ---------- */
