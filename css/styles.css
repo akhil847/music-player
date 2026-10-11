@@ -534,6 +534,44 @@ body:not(.is-playing) .np-art { transform: scale(.92); }
 body.dropping .view { outline: 3px dashed var(--accent); outline-offset: -10px; }
 
 /* ==========================================================================
+   Indian music & YouTube
+   ========================================================================== */
+.badge {
+  display: inline-block; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: .04em;
+  padding: 1px 6px; border-radius: 4px; margin-right: 6px; vertical-align: 1px;
+  background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent);
+}
+.info-card {
+  display: flex; align-items: center; gap: 16px; padding: 14px 16px; margin: 16px 0 4px; border-radius: var(--radius);
+  background: color-mix(in srgb, var(--accent) 14%, var(--surface)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 35%, transparent);
+  font-size: 14px;
+}
+.info-card .btn { flex: none; }
+.page section .sub { margin: -8px 0 4px; }
+.lang-chips { margin: -4px 0 14px; }
+em.ok { color: #22c55e; font-style: normal; font-weight: 700; }
+.howto summary { cursor: pointer; font-weight: 700; color: var(--accent); }
+.howto ol { padding-left: 20px; margin: 10px 0; display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+.howto a { color: var(--accent); text-decoration: underline; }
+.howto code { background: var(--surface-2); padding: 1px 6px; border-radius: 4px; font-size: 12px; word-break: break-all; }
+
+.yt-dock {
+  position: fixed; z-index: 55; right: 16px; bottom: calc(var(--player-h) + 12px);
+  width: 256px; height: 144px; border-radius: 12px; overflow: hidden; background: #000;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, .5); display: none;
+}
+.yt-dock.show { display: block; }
+.yt-dock .yt-frame, .yt-dock iframe { width: 100%; height: 100%; display: block; border: 0; }
+.yt-dock.in-np { border-radius: 16px; box-shadow: 0 24px 60px rgba(0, 0, 0, .5); }
+.yt-expand {
+  position: absolute; top: 6px; right: 6px; width: 30px; height: 30px; border-radius: 8px; display: grid; place-items: center;
+  background: rgba(0, 0, 0, .6); color: #fff; opacity: .85;
+}
+.yt-expand .i { width: 18px; height: 18px; }
+.yt-dock.in-np .yt-expand { display: none; }
+body.on-youtube .np-art { visibility: hidden; }
+
+/* ==========================================================================
    Mobile
    ========================================================================== */
 @media (max-width: 799px) {
@@ -572,6 +610,9 @@ body.dropping .view { outline: 3px dashed var(--accent); outline-offset: -10px; 
   .mini-progress div { height: 100%; width: 0; background: var(--text); border-radius: 2px; }
 
   .toast { bottom: calc(var(--bottom-nav-h) + var(--mini-h) + var(--safe-b) + 18px); }
+  .yt-dock { right: 8px; width: 208px; height: 117px; bottom: calc(var(--bottom-nav-h) + var(--mini-h) + var(--safe-b) + 14px); }
+  body.on-youtube .view { padding-bottom: calc(var(--bottom-nav-h) + var(--mini-h) + var(--safe-b) + 150px); }
+  .info-card { flex-direction: column; align-items: flex-start; }
 
   .sheet {
     left: 0; right: 0; top: auto; bottom: 0; width: 100%; max-height: 88vh; border-radius: 20px 20px 0 0;

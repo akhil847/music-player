@@ -52,6 +52,8 @@
     <symbol id="i-play-next" viewBox="0 0 24 24"><path d="M19 9H2v2h17V9zm0-4H2v2h17V5zM2 15h13v-2H2v2zm15-2v6l5-3-5-3z"/></symbol>
     <symbol id="i-add-queue" viewBox="0 0 24 24"><path d="M14 10H2v2h12v-2zm0-4H2v2h12V6zm4 8v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zM2 16h8v-2H2v2z"/></symbol>
     <symbol id="i-back" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></symbol>
+    <symbol id="i-movie" viewBox="0 0 24 24"><path d="M18 4l2 4h-3l-2-4h-2l2 4h-3l-2-4H8l2 4H7L5 4H4a2 2 0 00-1.99 2L2 18a2 2 0 002 2h16a2 2 0 002-2V4h-4z"/></symbol>
+    <symbol id="i-expand" viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></symbol>
     <symbol id="i-speed" viewBox="0 0 24 24"><path d="M20.38 8.57l-1.23 1.85a8 8 0 01-.22 7.58H5.07A8 8 0 0115.58 6.85l1.85-1.23A10 10 0 003.35 19a2 2 0 001.72 1h13.85a2 2 0 001.74-1 10 10 0 00-.27-10.44zm-9.79 6.84a2 2 0 002.83 0l5.66-8.49-8.49 5.66a2 2 0 000 2.83z"/></symbol>
   </svg>
 
@@ -65,6 +67,7 @@
         <a href="#/home" data-nav="home"><svg class="i"><use href="#i-home"/></svg><span>Home</span></a>
         <a href="#/search" data-nav="search"><svg class="i"><use href="#i-search"/></svg><span>Search</span></a>
         <a href="#/trending" data-nav="trending"><svg class="i"><use href="#i-fire"/></svg><span>Trending</span></a>
+        <a href="#/india" data-nav="india"><svg class="i"><use href="#i-movie"/></svg><span>Indian music</span></a>
         <a href="#/library" data-nav="library"><svg class="i"><use href="#i-library"/></svg><span>Library</span></a>
         <a href="#/settings" data-nav="settings"><svg class="i"><use href="#i-settings"/></svg><span>Settings</span></a>
       </nav>
@@ -115,8 +118,8 @@
       <a href="#/home" data-nav="home"><svg class="i"><use href="#i-home"/></svg><span>Home</span></a>
       <a href="#/search" data-nav="search"><svg class="i"><use href="#i-search"/></svg><span>Search</span></a>
       <a href="#/trending" data-nav="trending"><svg class="i"><use href="#i-fire"/></svg><span>Trending</span></a>
+      <a href="#/india" data-nav="india"><svg class="i"><use href="#i-movie"/></svg><span>Indian</span></a>
       <a href="#/library" data-nav="library"><svg class="i"><use href="#i-library"/></svg><span>Library</span></a>
-      <a href="#/settings" data-nav="settings"><svg class="i"><use href="#i-settings"/></svg><span>Settings</span></a>
     </nav>
   </div>
 
@@ -155,6 +158,12 @@
       </div>
     </div>
   </section>
+
+  <!-- YouTube player: stays visible while a YouTube song plays (YouTube's rule) -->
+  <div id="ytDock" class="yt-dock" aria-label="YouTube player">
+    <div class="yt-frame"></div>
+    <button class="yt-expand" data-action="open-now-playing-force" title="Open player"><svg class="i"><use href="#i-expand"/></svg></button>
+  </div>
 
   <div id="sheetRoot" class="sheet-root" aria-hidden="true">
     <div class="sheet-backdrop" data-action="close-sheet"></div>

@@ -3,6 +3,7 @@ import * as audius from './audius.js';
 import { Player, REPEAT } from './player.js';
 import { readTags, guessFromFilename, probeDuration } from './id3.js';
 import * as artwork from './artwork.js';
+import * as india from './india.js';
 
 /* ==========================================================================
    Helpers
@@ -93,7 +94,8 @@ function download(filename, data) {
    State
    ========================================================================== */
 const audio = $('#audio');
-const player = new Player(audio);
+const player = new Player(audio, $('#ytDock .yt-frame'));
+player.findVideo = (t) => india.findVideo(t);
 const view = $('#view');
 const lists = new Map();        // list key -> tracks, used by delegated click handlers
 let addTarget = null;           // group id when the user is picking songs for a group
@@ -134,7 +136,9 @@ darkQuery.addEventListener?.('change', applyTheme);
    Shared fragments
    ========================================================================== */
 function rowSub(t) {
-  return [esc(t.artist), t.plays ? `${fmtCount(t.plays)} plays` : '', t.source === 'local' ? 'On device' : t.source === 'url' ? 'Link' : '']
+  const preview = t.source === 'itunes' && !india.hasKey() ? '<span class="badge">30s preview</span>' : '';
+  return [preview + esc(t.artist), t.album ? `🎬 ${esc(t.album)}` : '', t.plays ? `${fmtCount(t.plays)} plays` : '',
+    t.source === 'local' ? 'On device' : t.source === 'url' ? 'Link' : t.source === 'youtube' ? 'YouTube' : '']
     .filter(Boolean).join(' · ');
 }
 
@@ -220,6 +224,7 @@ const routes = {
   home: renderHome,
   search: renderSearch,
   trending: renderTrending,
+  india: renderIndia,
   library: renderLibrary,
   liked: renderLiked,
   device: renderDevice,
@@ -272,6 +277,10 @@ async function renderHome(route, token) {
       </div>
       ${recents.length ? `<section>${sectionHead('Recently played', { href: '#/recent', label: 'See all' })}${trackShelf(recents.slice(0, 12), 'recents')}</section>` : ''}
       <section>${sectionHead(`${icon('fire', 'accent')} Trending now`, { href: '#/trending', label: 'See all' })}<div id="homeTrending">${shelfSkeleton()}</div></section>
+      <section>${sectionHead(`${icon('movie', 'accent')} Latest ${esc(india.LANGS[indianLang()].label)}`, { href: `#/india/${indianLang()}`, label: 'See all' })}
+        <div class="chips scroll-x lang-chips">${langChips(indianLang(), (l) => `#/india/${l}`)}</div>
+        <div id="homeIndia">${shelfSkeleton()}</div>
+      </section>
       <section>${sectionHead('Trending playlists')}<div id="homePlaylists">${shelfSkeleton()}</div></section>
       <section>${sectionHead('Browse by genre')}
         <div class="genre-grid">${audius.GENRES.map((g) => `<a class="genre" href="#/trending?genre=${encodeURIComponent(g)}" style="${gradient(g)}">${esc(g)}</a>`).join('')}</div>
@@ -283,6 +292,12 @@ async function renderHome(route, token) {
     if (isStale(token)) return;
     $('#homeTrending').innerHTML = tracks.length ? trackShelf(tracks, 'home-trending') : '<div class="empty">Nothing trending right now.</div>';
   }).catch(() => { if (!isStale(token)) $('#homeTrending').innerHTML = errorBox('Couldn’t load trending music.'); });
+
+  const lang = indianLang();
+  (india.hasKey() ? india.trending(lang).catch(() => india.latest(lang)) : india.latest(lang)).then((tracks) => {
+    if (isStale(token)) return;
+    $('#homeIndia').innerHTML = tracks.length ? trackShelf(tracks.slice(0, 20), 'home-india') : '<div class="empty">Nothing found right now.</div>';
+  }).catch(() => { if (!isStale(token)) $('#homeIndia').innerHTML = errorBox('Couldn’t load Indian songs.'); });
 
   audius.trendingPlaylists(time, 12).then((pls) => {
     if (isStale(token)) return;
@@ -324,6 +339,55 @@ async function renderTrending(route, token) {
   } catch {
     if (!isStale(token)) $('#trendList').innerHTML = errorBox('Couldn’t load trending music.');
   }
+}
+
+/* ---------- Indian music ---------- */
+function indianLang() {
+  const l = store.get('settings').indianLang;
+  return india.LANGS[l] ? l : 'telugu';
+}
+
+function langChips(active, href) {
+  return Object.entries(india.LANGS).map(([k, v]) => `<a class="chip ${k === active ? 'active' : ''}" href="${href(k)}">${esc(v.label)}</a>`).join('');
+}
+
+async function renderIndia(route, token) {
+  const lang = india.LANGS[route.param] ? route.param : indianLang();
+  if (lang !== store.get('settings').indianLang) store.setting('indianLang', lang);
+  const L = india.LANGS[lang];
+  const key = india.hasKey();
+  const section = (id, title, sub) => `<section id="${id}">${sectionHead(title)}${sub ? `<p class="muted small sub">${sub}</p>` : ''}<div class="list-actions" id="${id}Actions"></div><div id="${id}List">${skeletonRows(6)}</div></section>`;
+  view.innerHTML = `
+    <div class="page">
+      ${addBanner()}
+      <header class="page-head"><h1>${icon('movie', 'accent')} ${esc(L.label)} music</h1></header>
+      <div class="chips scroll-x">${langChips(lang, (l) => `#/india/${l}`)}</div>
+      ${key ? '' : `
+        <div class="info-card">
+          <div><b>Want full songs?</b> Right now these play Apple’s official 30-second previews. Add a free YouTube key (5 minutes, no payment) and every song plays in full from the labels’ official YouTube uploads.</div>
+          <a class="btn sm" href="#/settings">Set up full songs</a>
+        </div>`}
+      ${key ? section('inTrend', `${icon('fire', 'accent')} Trending this month`, 'Most-watched new songs on YouTube in the last 30 days') : ''}
+      ${key ? section('inLabels', 'Fresh from the labels', `Newest uploads from ${L.handles.map((h) => h.slice(1)).slice(0, 3).join(', ')} and more`) : ''}
+      ${section('inLatest', 'Latest releases', 'Newest songs in Apple Music India, by release date')}
+      ${section('inTop', 'Top charts', 'Apple Music India top songs')}
+    </div>`;
+  const fill = (id, listKey, promise, opts = {}) => promise.then((tracks) => {
+    if (isStale(token)) return;
+    if (!tracks.length && opts.hideEmpty) { $(`#${id}`)?.remove(); return; }
+    $(`#${id}List`).innerHTML = trackList(tracks, listKey, { numbered: opts.numbered, empty: 'Nothing here right now.' });
+    if (tracks.length) $(`#${id}Actions`).innerHTML = playButtons(listKey, 'Save as group');
+  }).catch((e) => {
+    if (isStale(token)) return;
+    if (opts.hideEmpty) { $(`#${id}`)?.remove(); return; }
+    $(`#${id}List`).innerHTML = `<div class="empty">${esc(e.message || 'Couldn’t load this list.')}</div>`;
+  });
+  if (key) {
+    fill('inTrend', 'india-trend', india.trending(lang), { numbered: true });
+    fill('inLabels', 'india-labels', india.fromLabels(lang));
+  }
+  fill('inLatest', 'india-latest', india.latest(lang));
+  fill('inTop', 'india-top', india.topChart(lang), { numbered: true, hideEmpty: true });
 }
 
 function playButtons(listKey, saveLabel) {
@@ -380,8 +444,20 @@ async function searchResults(q) {
   box.innerHTML = `
     ${myGroups.length ? `<section>${sectionHead('Your groups')}<div class="shelf">${myGroups.map(groupCard).join('')}</div></section>` : ''}
     ${mine.length ? `<section>${sectionHead('In your library')}${trackList(mine, 'search-mine')}</section>` : ''}
+    ${india.hasKey() ? `<section>${sectionHead(`${icon('movie', 'accent')} Full songs (YouTube)`)}<div id="searchYT">${skeletonRows(4)}</div></section>` : ''}
+    <section>${sectionHead(`${icon('movie', 'accent')} Indian & film songs`)}<div id="searchIndia">${skeletonRows(4)}</div></section>
     <section>${sectionHead('Songs')}<div id="searchSongs">${skeletonRows(8)}</div></section>
     <section id="searchPlaylists"></section>`;
+  india.searchSongs(q).then((tracks) => {
+    if (seq !== searchSeq) return;
+    $('#searchIndia').innerHTML = trackList(tracks.slice(0, 10), 'search-india', { empty: 'No Indian catalogue matches.' });
+  }).catch(() => { if (seq === searchSeq) $('#searchIndia').innerHTML = '<div class="empty">Indian catalogue unavailable right now.</div>'; });
+  if (india.hasKey()) {
+    india.searchYouTube(q).then((tracks) => {
+      if (seq !== searchSeq) return;
+      $('#searchYT').innerHTML = trackList(tracks.filter((t) => !/#shorts/i.test(t.title)).slice(0, 10), 'search-yt', { empty: 'No YouTube matches.' });
+    }).catch((e) => { if (seq === searchSeq) $('#searchYT').innerHTML = `<div class="empty">${esc(e.message)}</div>`; });
+  }
   try {
     const [tracks, pls] = await Promise.all([audius.searchTracks(q), audius.searchPlaylists(q).catch(() => [])]);
     if (seq !== searchSeq) return;
@@ -546,6 +622,31 @@ function renderSettings() {
         </div>
         <div class="field"><span>Playback speed</span>
           <div class="seg">${[0.75, 1, 1.25, 1.5, 2].map((v) => `<button class="${s.speed === v ? 'active' : ''}" data-action="set-speed" data-value="${v}">${v}×</button>`).join('')}</div>
+        </div>
+      </section>
+      <section class="panel" id="ytPanel">
+        <h3>${icon('movie', 'accent')} Full Indian & film songs (YouTube)</h3>
+        <p class="muted small">Telugu, Tamil, Hindi and other film songs play in full from the music labels’ official YouTube uploads. It needs a free YouTube key — no payment, about 5 minutes. YouTube may show its own ads before some songs.</p>
+        <label class="field"><span>YouTube API key ${s.ytKey ? '<em class="ok">✓ connected</em>' : ''}</span>
+          <input type="text" id="ytKey" value="${esc(s.ytKey)}" placeholder="Paste your key (starts with AIza…)" autocomplete="off" spellcheck="false" />
+        </label>
+        <div class="btn-row">
+          <button class="btn sm" data-action="save-yt-key">Save & test</button>
+          ${s.ytKey ? '<button class="btn ghost sm" data-action="remove-yt-key">Remove key</button>' : ''}
+        </div>
+        <details class="howto">
+          <summary>How to get a free key (step by step)</summary>
+          <ol>
+            <li>Open <a href="https://console.cloud.google.com/projectcreate" target="_blank" rel="noopener">Google Cloud Console</a> and sign in with your Google account. Create a project named <b>Echo</b>.</li>
+            <li>Open <a href="https://console.cloud.google.com/apis/library/youtube.googleapis.com" target="_blank" rel="noopener">YouTube Data API v3</a> and press <b>Enable</b>.</li>
+            <li>Go to <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">Credentials</a> → <b>Create credentials</b> → <b>API key</b>, and copy it.</li>
+            <li>Recommended: click the key → <b>Application restrictions: Websites</b> → add <code>${esc(location.origin)}/*</code>, and under <b>API restrictions</b> pick <b>YouTube Data API v3</b>. Save.</li>
+            <li>Paste the key above and press <b>Save & test</b>.</li>
+          </ol>
+          <p class="muted small">Free daily allowance: about 100 song searches a day. Songs Echo has already found are remembered and cost nothing to replay. No billing account is needed.</p>
+        </details>
+        <div class="field"><span>Home screen language</span>
+          <div class="seg">${Object.entries(india.LANGS).map(([k, v]) => `<button class="${indianLang() === k ? 'active' : ''}" data-action="set-indian-lang" data-value="${k}">${esc(v.label)}</button>`).join('')}</div>
         </div>
       </section>
       <section class="panel">
@@ -866,17 +967,38 @@ window.addEventListener('popstate', () => {
   }
 });
 
+// YouTube's video must stay visible: full size over the artwork on the Now Playing screen,
+// otherwise a small floating window above the player bar.
+const dock = $('#ytDock');
+function updateDock() {
+  const show = player.onYouTube && !!player.current;
+  dock.classList.toggle('show', show);
+  document.body.classList.toggle('on-youtube', show);
+  if (!show) return;
+  const npOpen = np.classList.contains('open');
+  dock.classList.toggle('in-np', npOpen);
+  if (npOpen) {
+    const r = $('.np-art').getBoundingClientRect();
+    Object.assign(dock.style, { left: `${r.left}px`, top: `${r.top}px`, width: `${r.width}px`, height: `${r.height}px`, right: '', bottom: '' });
+  } else {
+    dock.removeAttribute('style');
+  }
+}
+addEventListener('resize', () => updateDock());
+
 function openNowPlaying() {
   if (!player.current || np.classList.contains('open')) return;
   np.classList.add('open');
   np.setAttribute('aria-hidden', 'false');
   pushOverlay('np');
+  setTimeout(updateDock, 380); // after the slide-up animation
 }
 
 function closeNowPlaying({ fromHistory = false } = {}) {
   if (!np.classList.contains('open')) return;
   np.classList.remove('open');
   np.setAttribute('aria-hidden', 'true');
+  updateDock();
   if (!fromHistory) popOverlay('np');
 }
 
@@ -945,7 +1067,7 @@ function updateLikeUI() {
 }
 
 function updateTimeUI() {
-  const a = audio;
+  const a = player.media;
   const dur = isFinite(a.duration) ? a.duration : (player.current?.duration || 0);
   const cur = a.currentTime || 0;
   const pct = dur ? cur / dur : 0;
@@ -956,7 +1078,7 @@ function updateTimeUI() {
 }
 
 function updateVolumeUI() {
-  const v = audio.muted ? 0 : audio.volume;
+  const v = player.muted ? 0 : player.volume;
   const range = $('.volume');
   range.value = Math.round(v * 100);
   range.style.setProperty('--p', `${v * 100}%`);
@@ -1029,21 +1151,21 @@ function updateSleepLabel() {
 $$('.seek').forEach((range) => {
   range.addEventListener('input', () => {
     seeking = true;
-    const dur = audio.duration;
+    const dur = player.media.duration;
     const pct = range.value / 1000;
     range.style.setProperty('--p', `${pct * 100}%`);
     if (isFinite(dur)) $$('.time.cur').forEach((el) => { el.textContent = fmtTime(pct * dur); });
   });
   range.addEventListener('change', () => {
     seeking = false;
-    if (isFinite(audio.duration)) player.seek((range.value / 1000) * audio.duration);
+    if (isFinite(player.media.duration)) player.seek((range.value / 1000) * player.media.duration);
   });
 });
 
 $('.volume').addEventListener('input', (e) => {
   player.setVolume(e.target.value / 100);
 });
-$('.volume').addEventListener('change', () => store.setting('volume', audio.volume));
+$('.volume').addEventListener('change', () => store.setting('volume', player.volume));
 
 /* ==========================================================================
    Player events
@@ -1071,6 +1193,13 @@ player.addEventListener('mode', () => { updateModeUI(); saveSession(); });
 player.addEventListener('volume', updateVolumeUI);
 player.addEventListener('queue', () => { refreshQueueSheet(); saveSession(); });
 player.addEventListener('sleep', () => { updateSleepLabel(); if (!player.sleep && !player.playing) toast('Sleep timer — paused'); });
+player.addEventListener('preview', (e) => {
+  toast(e.detail.reason ? `${e.detail.reason} — playing the 30-second preview` : india.hasKey()
+    ? 'Full song not found on YouTube — playing the 30-second preview'
+    : '30-second preview · add a free YouTube key in Settings for full songs');
+});
+player.addEventListener('notice', (e) => toast(e.detail.message));
+player.addEventListener('engine', () => updateDock());
 player.addEventListener('error', (e) => toast(`${e.detail.message}${e.detail.track ? ` — ${e.detail.track.title}` : ''}`));
 
 setInterval(() => { if (player.sleep) updateSleepLabel(); }, 1000);
@@ -1113,6 +1242,13 @@ function contextFor(listKey) {
     playlist: { label: $('.collection-info h1')?.textContent || 'Playlist', href: here },
     search: { label: `Search “${route.query.get('q') || ''}”`, href: here },
     'search-mine': { label: 'Your library', href: here },
+    'search-india': { label: `Search “${route.query.get('q') || ''}”`, href: here },
+    'search-yt': { label: `Search “${route.query.get('q') || ''}”`, href: here },
+    'home-india': { label: `Latest ${india.LANGS[indianLang()].label}`, href: `#/india/${indianLang()}` },
+    'india-trend': { label: `${india.LANGS[indianLang()].label} · Trending`, href: here },
+    'india-labels': { label: `${india.LANGS[indianLang()].label} · New from labels`, href: here },
+    'india-latest': { label: `${india.LANGS[indianLang()].label} · Latest`, href: here },
+    'india-top': { label: `${india.LANGS[indianLang()].label} · Top charts`, href: here },
   };
   return fixed[listKey] || null;
 }
@@ -1330,6 +1466,22 @@ const actions = {
     render();
   }),
   'clear-recents': () => { store.set('recents', []); render(); },
+  'save-yt-key': async () => {
+    const key = $('#ytKey').value.trim();
+    if (!key) { toast('Paste your key first'); return; }
+    toast('Testing key…');
+    try {
+      await india.testKey(key);
+      store.setting('ytKey', key);
+      toast('YouTube connected — full songs are on 🎉');
+      renderSettings();
+    } catch (e) {
+      toast(`That key didn’t work: ${e.message}`);
+    }
+  },
+  'remove-yt-key': () => { store.setting('ytKey', ''); toast('Key removed'); renderSettings(); },
+  'set-indian-lang': (el) => { store.setting('indianLang', el.dataset.value); renderSettings(); },
+  'open-now-playing-force': () => openNowPlaying(),
   'set-theme': (el) => { store.setting('theme', el.dataset.value); applyTheme(); renderSettings(); },
   'set-accent': (el) => { store.setting('accent', el.dataset.value); applyTheme(); renderSettings(); },
   'set-trending-time': (el) => { store.setting('trendingTime', el.dataset.value); renderSettings(); },
@@ -1448,7 +1600,7 @@ async function boot() {
   await store.load();
   const s = store.get('settings');
   applyTheme();
-  audio.volume = s.volume ?? 1;
+  player.setVolume(s.volume ?? 1);
   player.rate = s.speed || 1;
   $('.speed-label').textContent = `${player.rate}×`;
   updateVolumeUI();

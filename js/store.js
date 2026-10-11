@@ -8,6 +8,9 @@ const DEFAULTS = {
   recents: [],        // recently played tracks
   searches: [],       // recent search strings
   artCache: {},       // "title|artist" -> { url } or { at } for a failed lookup
+  ytCache: {},        // cached YouTube lists: key -> { at, data }
+  ytMatch: {},        // song id -> YouTube video id found for it
+  ytChannels: {},     // "@handle" -> uploads playlist id (or '' if the handle doesn't exist)
   settings: {
     theme: 'dark',
     accent: '#8b5cf6',
@@ -16,6 +19,8 @@ const DEFAULTS = {
     crossfade: false,
     trendingTime: 'week',
     name: '',
+    ytKey: '',          // free YouTube Data API key, enables full Indian film songs
+    indianLang: 'telugu',
   },
   session: null,      // { queue, order, index, position, shuffle, repeat }
 };
@@ -170,7 +175,7 @@ export function exportData() {
     groups: groups.map((g) => ({ ...g, tracks: portable(g.tracks) })),
     urlTracks: state.localTracks.filter((t) => t.source === 'url'),
     recents: portable(recents),
-    settings,
+    settings: { ...settings, ytKey: '' }, // never put the private key in a shareable file
   };
 }
 
@@ -184,7 +189,7 @@ export function importData(data) {
   const groupIds = new Set(state.groups.map((g) => g.id));
   set('groups', [...state.groups, ...(data.groups || []).filter((g) => !groupIds.has(g.id))]);
   set('localTracks', byId(state.localTracks, data.urlTracks));
-  if (data.settings) set('settings', { ...state.settings, ...data.settings });
+  if (data.settings) set('settings', { ...state.settings, ...data.settings, ytKey: data.settings.ytKey || state.settings.ytKey });
 }
 
 export function importGroup(data) {
@@ -202,6 +207,6 @@ export async function resetAll() {
 
 // Keep only the fields needed to re-play a track later.
 export function slim(t) {
-  const { id, source, audiusId, title, artist, artwork, duration, genre, src, link } = t;
-  return Object.fromEntries(Object.entries({ id, source, audiusId, title, artist, artwork, duration, genre, src, link }).filter(([, v]) => v !== undefined && v !== ''));
+  const { id, source, audiusId, title, artist, artwork, duration, genre, src, link, album, preview, videoId, itunesId } = t;
+  return Object.fromEntries(Object.entries({ id, source, audiusId, title, artist, artwork, duration, genre, src, link, album, preview, videoId, itunesId }).filter(([, v]) => v !== undefined && v !== ''));
 }

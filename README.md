@@ -12,6 +12,13 @@ No account, no ads, no tracking — everything you save stays on your device.
 - 📁 **Your own files** — upload MP3/M4A/FLAC/WAV/OGG (or drag & drop on desktop). Title, artist and cover art are read from the file's tags
 - 🔗 **Links** — add any direct audio URL or internet radio stream
 
+**🎬 Indian music — Telugu, Tamil, Hindi, Kannada, Malayalam, Punjabi**
+- **Latest releases** and **Top charts** per language from Apple Music India (free, no setup) — plays Apple's official **30-second previews**
+- **Full songs** after adding a free YouTube key (Settings → Full Indian & film songs): every song plays in full from the labels' **official YouTube uploads**, and you also get **Trending this month** (most-watched new songs) and **Fresh from the labels** (Aditya Music, T-Series, Lahari, Sony Music South, Think Music, Saregama and more)
+- Search also finds Indian film songs, plus full YouTube results when a key is set
+- Song titles from YouTube are cleaned up (`#Pushpa2 - Peelings Lyrical Video | Allu Arjun …` → **Peelings** · 🎬 Pushpa2)
+- Notes: YouTube may show its own ads before some songs; the video stays visible in a small window while it plays (YouTube's rule); YouTube songs usually stop when the phone is locked. The free key allows ~100 song searches a day — songs already found are remembered and cost nothing
+
 **Pictures, automatically**
 - When a song has no picture, Echo finds its **album cover or movie poster** by itself (via Apple's free iTunes catalogue, which includes film soundtracks) and shows it on the player, the lock screen and in your lists
 - Messy file names like `01 - Naatu Naatu (From RRR) [128 kbps]` or `Srivalli_Lyrical_site.in` are cleaned up, and the proper **song title and artist** are filled in when there's a confident match
@@ -68,7 +75,10 @@ It then launches full-screen with its own icon, and keeps playing with the scree
 
 ## Where the music comes from
 
-Streaming, trending charts and search use the free, open [Audius](https://audius.co) API — a legal, ad-free
+Indian film and regional songs come from Apple Music India's free catalogue (charts, posters, 30-second previews)
+and, with your own free YouTube key, from the music labels' official YouTube channels.
+
+Other streaming, trending charts and search use the free, open [Audius](https://audius.co) API — a legal, ad-free
 catalogue of independent artists, so there's nothing to pay and no API key needed. Major-label hits that only
 live on Spotify/Apple Music aren't on Audius; for those, add your own files or links and put them in your groups.
 
@@ -83,6 +93,9 @@ js/store.js           Persistent state (likes, groups, settings, session)
 js/db.js              IndexedDB wrapper (data + locally stored audio files)
 js/audius.js          Audius API client (trending, search, playlists, streams)
 js/id3.js             Reads title/artist/cover art from MP3 tags
+js/artwork.js         Finds posters/cover art and proper names automatically
+js/india.js           Indian music: Apple charts/previews, YouTube trending, label uploads, search
+js/youtube.js         YouTube playback engine (same interface as the audio player)
 sw.js                 Service worker (offline app shell)
 manifest.webmanifest  PWA manifest (install to home screen)
 icons/                App icons

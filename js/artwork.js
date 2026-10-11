@@ -25,7 +25,7 @@ function cacheKey(t) {
 
 // JSONP keeps this working regardless of the API's CORS headers.
 let jsonpSeq = 0;
-function jsonp(url, timeout = 8000) {
+export function jsonp(url, timeout = 8000) {
   return new Promise((resolve, reject) => {
     const name = `__echoArt${Date.now()}_${jsonpSeq++}`;
     const script = document.createElement('script');
